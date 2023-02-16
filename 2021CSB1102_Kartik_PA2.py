@@ -7,10 +7,11 @@ Using delaunay triangulation. Please ensure that the dimensions of both images i
 
 from imutils import face_utils  #For face points mapping
 import dlib                     #For the model to detect landmarks automatically
+# https://www.geeksforgeeks.org/how-to-install-dlib-library-for-python-in-windows-10/
 # To install dlib, first pip install cmake, then pip install dlib
 import cv2                      #OpenCV library
-import os                       #For saving images and video in a path
 import numpy             #Numpy library
+import imageio
 
 #To return indices of triangles in image
 def find_i(point, tr):
@@ -81,51 +82,68 @@ if __name__ == '__main__':
     predictor = dlib.shape_predictor(p)
 
     #Path of the two images to be morphed
-    image = cv2.imread('a.jpg')
-    image1 = cv2.imread('b.jpg')
+    image = cv2.imread('a1.jpg')
+    image1 = cv2.imread('b1.jpg')
 
-    tr1 = get_points(image)
-    tr2 = get_points(image1)
+    triangle1 = []
+    triangle2 = []
+    print("Get tiepoint manually (press 1) or automatically (press 2)")
+    n = int(input())
+    if(n==1):
+        with open("file1.txt", "r") as f:
+            for i in f:
+                a, b, c, d = map(int, i.split())
+                triangle1.append((a, b))
+                triangle2.append((c, d))
 
-    dlny1 = triangulate(image, tr1)
+    if(n==2):
+        triangle1 = get_points(image)
+        triangle2 = get_points(image1)
 
-    tri_index = []
+    dlny1 = triangulate(image, triangle1)
+
+    triangle_index = []
     for t in dlny1:
         pt1, pt2, pt3 = (t[0], t[1]), (t[2], t[3]), (t[4], t[5])
         # Creating a combined point of (x,y)
-        add = [(find_i(pt1, tr1), find_i(pt2, tr1), find_i(pt3, tr1))]
-        tri_index.extend(add)
+        add = [(find_i(pt1, triangle1), find_i(pt2, triangle1), find_i(pt3, triangle1))]
+        triangle_index.extend(add)
 
     #Create a video from the generated frames
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     h, w, c = image.shape
-        # Docs : https://docs.opencv.org/master/dd/d9e/classcv_1_1VideoWriter.html
-    videoWriter = cv2.VideoWriter(".\output_video\Morph.mp4", fourcc, fps, (w, h))
-    path = ".\output_images"
-    for k in range(0, frames + 1):
-        alpha, tr_Middle = k / frames, []
+    
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    height, width, channels = image.shape
+    fps = 30
 
-        for i in range(len(tr1)):
-            x = int(((1-alpha) * tr1[i][0]) + (alpha * tr2[i][0]))
-            y = int(((1-alpha) * tr1[i][1]) + (alpha * tr2[i][1]))
-            tr_Middle.append((x, y))
+    output_path = './output_images'
+    gif_path = './output_gif/morph.gif'
 
-            # Creating a image with as same as shape of image having zeroes
-        imgMorph = numpy.zeros(image.shape, dtype=image1.dtype)
+    with imageio.get_writer(gif_path, mode='I', duration=0.05) as writer:
+        for frame in range(frames):
+            alpha_factor = (frame + 1) / frames
+            triangle_middle = []
+            
+            for i in range(len(triangle1)):
+                x = int(((1-alpha_factor) * triangle1[i][0]) + (alpha_factor * triangle2[i][0]))
+                y = int(((1-alpha_factor) * triangle1[i][1]) + (alpha_factor * triangle2[i][1]))
+                triangle_middle.append((x, y))
+            
+            morphed_image = numpy.zeros(image.shape, dtype=image.dtype)
+            
+            for j in range(len(triangle_index)):
+                x, y, z = triangle_index[j][0], triangle_index[j][1], triangle_index[j][2]
+                t1 = [triangle1[x], triangle1[y], triangle1[z]]
+                t2 = [triangle2[x], triangle2[y], triangle2[z]]
+                t = [triangle_middle[x], triangle_middle[y], triangle_middle[z]]
+                combineResult(image, image1, morphed_image, t1, t2, t, alpha_factor)
+            
+            cv2.imshow('Morphed Face', numpy.uint8(morphed_image))
+            cv2.imwrite(f'{output_path}/{frame}.jpg', morphed_image)
+            
+            gif_image = cv2.cvtColor(morphed_image, cv2.COLOR_BGR2RGB)
+            writer.append_data(gif_image)
+            cv2.waitKey(50)
 
-        for j in range(len(tri_index)):
-
-            x, y, z = tri_index[j][0], tri_index[j][1], tri_index[j][2]
-            t1 = [tr1[x], tr1[y], tr1[z]]
-            t2 = [tr2[x], tr2[y], tr2[z]]
-            t = [tr_Middle[x], tr_Middle[y], tr_Middle[z]]
-
-            # Doing morphing with passed triangles and images
-            combineResult(image, image1, imgMorph, t1, t2, t, alpha)
-
-        cv2.imshow("Morphed Face", numpy.uint8(imgMorph))
-        cv2.imwrite(os.path.join(path , str(k)+".jpg"), imgMorph)
-        videoWriter.write(imgMorph)
-        cv2.waitKey(50)
-    videoWriter.release()
     cv2.destroyAllWindows()
