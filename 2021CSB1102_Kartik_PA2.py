@@ -9,6 +9,7 @@ from imutils import face_utils  #For face points mapping
 import dlib                     #For the model to detect landmarks automatically
 # https://www.geeksforgeeks.org/how-to-install-dlib-library-for-python-in-windows-10/
 # To install dlib, first pip install cmake, then pip install dlib
+import os
 import cv2                      #OpenCV library
 import numpy             #Numpy library
 import imageio
@@ -115,7 +116,15 @@ if __name__ == '__main__':
     
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     height, width, channels = image.shape
-    fps = 30
+    fps = frames
+
+    parent_dir = './'
+    v_dir = 'output_gif'
+    img_dir = 'output_images'
+    path = os.path.join(parent_dir, v_dir)
+    os.mkdir(path)
+    path = os.path.join(parent_dir, img_dir)
+    os.mkdir(path)
 
     output_path = './output_images'
     gif_path = './output_gif/morph.gif'
